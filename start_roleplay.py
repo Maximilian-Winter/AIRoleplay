@@ -145,7 +145,6 @@ Current Context:
 chat_template_instruction = """### Instruction:
 {system_message}
 
-### Input:
 Character:
 {character}
 
@@ -165,6 +164,7 @@ Additional Context:
 {additional_context}
 Conversation History:
 {history}
+### Input:
 {user_name}: {input}
 
 
