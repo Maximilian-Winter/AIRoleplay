@@ -1,0 +1,4 @@
+
+*.pyc
+pa_data_rf/chat_history.json
+pa_data_rf/bot_settings.json
