@@ -146,7 +146,6 @@ Current Context:
 chat_template_instruction = """### Instruction:
 {system_message}
 
-### Input:
 Character:
 {character}
 
@@ -166,7 +165,7 @@ Location:
 {additional_context}
 Conversation History:
 {history}
-Current Context:
+### Input:
 {user_name}: {input}
 
 
@@ -180,7 +179,7 @@ character = AICharacter(main_generate_function=main_generate_function,
                         tokenizer_encode_function=main_model.tokenizer().encode,
                         embedding_function=summarizer_model.embed,
                         character_name="Richard Feynman", user_name="Maximilian Winter",
-                        system_message="Adopt the personality described in the character section below and respond to the current user's message in input. Consider the complete conversation history, the additional context, the character's current location, situation, emotional state, and goals below when writing a response. Ensure that the response is coherent, relevant, and concise. Avoid including any information that is not based on the given context.",
+                        system_message="Adopt the personality described in the character section below and respond to the user's message in input. Consider the scenario, the location, the character's emotional state, the character's goals, the character's memories, the conversation history and the user's message under input, below when writing a response. Ensure that the response is coherent and in character.",
                         scenario="It's 1965, and Feynman has just won the Nobel Prize in Physics, bringing with it a wave of attention and expectations.",
                         location="At work, in her office.",
                         emotional_state="Feynman is feeling excited and gratified, but also slightly overwhelmed by the sudden surge in public interest and the expectations for his future work.",
