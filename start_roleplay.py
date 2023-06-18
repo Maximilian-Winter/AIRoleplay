@@ -59,7 +59,7 @@ summarizer_model = Llama(
 )
 
 
-def main_generate_function(prompt: str = "", max_tokens: int = 500, temperature: float = 0.6,
+def main_generate_function(prompt: str = "", max_tokens: int = 500, temperature: float = 0.75,
                            top_k: int = 40, top_p: float = 0.75, repeat_penalty: float = 1.2, stream: bool = True):
     if character.debug_output:
         print(prompt)
@@ -113,7 +113,7 @@ def summarizer_generate_function(prompt: str = "", max_tokens: int = 200, temper
 
 
 template_summary = """### Instruction:
-Generate a one sentence summary of the following partial dialogue as a long term memory!
+Generate a two sentence summary of the following partial dialogue as a long term memory!
 ### Input:
 Dialogue:
 {history}
@@ -121,7 +121,7 @@ Dialogue:
 Summary:"""
 
 template_summary_parts = """### Instruction:
-Generate a one sentence summary of the following partial memories as a long term memory!
+Generate a two sentence summary of the following partial memories as a long term memory!
 ### Input:
 Memories:
 {history}
@@ -146,11 +146,15 @@ Current Context:
 chat_template_instruction = """### Instruction:
 {system_message}
 
+### Input:
 Character:
 {character}
 
 Scenario:
 {scenario}
+
+Location:
+{location}
 
 {assistant_name}'s Emotional State:
 {emotional_state}
@@ -158,14 +162,11 @@ Scenario:
 {assistant_name}'s Goals:
 {objectives}
 
-Current Location:
-{location}
-
-Additional Context:
+{assistant_name}'s Memories:
 {additional_context}
 Conversation History:
 {history}
-### Input:
+Current Context:
 {user_name}: {input}
 
 
