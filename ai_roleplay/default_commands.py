@@ -51,8 +51,8 @@ def set_temperature(personal_assistant: AICharacter, temp):
 
 
 @chat_command("remove_last_turn", command_registry)
-def remove_last_turn(personal_assistant: AICharacter):
-    personal_assistant.chat_history = personal_assistant.chat_history[:-1]
+def remove_last_turn(personal_assistant: AICharacter, count=1):
+    personal_assistant.chat_history = personal_assistant.chat_history[:-int(count)]
     personal_assistant.init_chat()
     personal_assistant.save_chat_history()
 

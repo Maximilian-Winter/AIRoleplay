@@ -12,7 +12,7 @@ from .commands import CommandRegistry
 
 class AICharacter:
     def __init__(self, main_generate_function, summarizer_generate_function, tokenizer_encode_function,
-                 embedding_function, character_name="Grey Fox", user_name="User",
+                 character_name="Grey Fox", user_name="User",
                  system_message="You are a the user's personal assistant.", objectives=None, max_output_length=350,
                  chat_template="", summarizer_template="", summarizer_summaries_template="", command_registry=None,
                  save_dir="./pa_data",
@@ -25,7 +25,6 @@ class AICharacter:
         self.manual_summarize = manual_summarize
         self.tokenizer_encode_function = tokenizer_encode_function
         self.max_output_length = max_output_length
-        self.embedding_function = embedding_function
         if generation_parameters is None:
             self.generation_parameters = {}
         else:
@@ -99,7 +98,7 @@ Current Context:
         self.debug_output = debug_output
         self.main_generate_function = main_generate_function
         self.summarizer_generate_function = summarizer_generate_function
-
+        self.embedding_model = INSTRUCTOR('hkunlp/instructor-large')
         self.emotional_state = emotional_state
         self.location = location
         self.scenario = scenario
@@ -132,6 +131,7 @@ Current Context:
                 self.assistant_name = bot_settings[0]
                 self.user_name = bot_settings[1]
                 self.objectives = bot_settings[2]
+                self.objectives_list = "\n".join(self.objectives)
                 self.chat_template = bot_settings[3]
                 self.template_summary = bot_settings[4]
                 self.template_summary_parts = bot_settings[5]
@@ -143,11 +143,9 @@ Current Context:
 
     def create_embeddings(self, sentences: List[str]) -> List[np.ndarray]:
         """Create embeddings for a list of sentences."""
-        embeddings = []
-        for sentence in sentences:
-            embed = self.embedding_function(sentence)
-            embeddings.append(np.array(embed))
-        return embeddings
+        embeddings = self.embedding_model.encode(sentences)
+        # Convert the embeddings to float16 for efficient memory utilization
+        return [np.array(embed) for embed in embeddings]
 
     def save_chat_history(self):
         with open(f"{self.save_dir}/chat_history.json", 'w') as file:

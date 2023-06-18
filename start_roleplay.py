@@ -16,7 +16,7 @@ class LlamaSettings:
 
 settings = LlamaSettings()
 settings.model = "../../ggml-v3-models/Dans-PersonalityEngine-30b-ggml-q5_0.bin"
-settings.n_batch = 512
+settings.n_batch = 768
 settings.n_gpu_layers = 4
 settings.n_threads = 12
 settings.last_n_tokens_size = 2048
@@ -26,7 +26,7 @@ settings.embedding = True
 settings_summarizer = LlamaSettings()
 settings_summarizer.model = "../../ggml-v3-models/WizardLM-7B-uncensored.ggmlv3.q5_1.bin"
 settings_summarizer.n_batch = 512
-settings_summarizer.n_gpu_layers = 4
+settings_summarizer.n_gpu_layers = 3
 settings_summarizer.n_threads = 12
 settings_summarizer.last_n_tokens_size = 2048
 settings_summarizer.embedding = True
@@ -59,8 +59,8 @@ summarizer_model = Llama(
 )
 
 
-def main_generate_function(prompt: str = "", max_tokens: int = 500, temperature: float = 0.75,
-                           top_k: int = 40, top_p: float = 0.75, repeat_penalty: float = 1.2, stream: bool = True):
+def main_generate_function(prompt: str = "", max_tokens: int = 500, temperature: float = 0.7,
+                           top_k: int = 0, top_p: float = 0.5, repeat_penalty: float = 1.2, stream: bool = True):
     if character.debug_output:
         print(prompt)
     result = main_model(
@@ -173,9 +173,8 @@ character = """Richard Feynman, the charismatic and influential theoretical phys
 character = AICharacter(main_generate_function=main_generate_function,
                         summarizer_generate_function=summarizer_generate_function,
                         tokenizer_encode_function=main_model.tokenizer().encode,
-                        embedding_function=summarizer_model.embed,
                         character_name="Richard Feynman", user_name="Maximilian Winter",
-                        system_message="Adopt the personality described in the character section below and respond to the user's message in input. Consider the scenario, the location, the character's emotional state, the character's goals, the character's memories, the conversation history and the user's message under input, below when writing a response. Ensure that the response is coherent and in character.",
+                        system_message="Adopt the personality described in the character section below and respond to the user's message in input. Consider the scenario, the location, the character's emotional state, the character's goals, the character's memories, the conversation history and the user's message under input, below when writing a response.",
                         scenario="It's 1965, and Feynman has just won the Nobel Prize in Physics, bringing with it a wave of attention and expectations.",
                         location="At work, in her office.",
                         emotional_state="Feynman is feeling excited and gratified, but also slightly overwhelmed by the sudden surge in public interest and the expectations for his future work.",
