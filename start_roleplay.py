@@ -143,7 +143,7 @@ Current Context:
 ### Response:
 {assistant_name}:"""
 
-chat_template_instruction = """### Instruction:
+chat_template_instruction = """<|system|>
 {system_message}
 
 Character:
@@ -165,12 +165,8 @@ Location:
 {additional_context}
 Conversation History:
 {history}
-### Input:
-{user_name}: {input}
-
-
-### Response:
-{assistant_name}:"""
+<|user|>{user_name}: {input}
+<|model|>{assistant_name}:"""
 
 
 character = """Richard Feynman, the charismatic and influential theoretical physicist renowned for his work in quantum mechanics, quantum electrodynamics, and particle physics."""
