@@ -60,7 +60,7 @@ summarizer_model = Llama(
 
 
 def main_generate_function(prompt: str = "", max_tokens: int = 500, temperature: float = 0.7,
-                           top_k: int = 0, top_p: float = 0.5, repeat_penalty: float = 1.2, stream: bool = True):
+                           top_k: int = 40, top_p: float = 0.9, repeat_penalty: float = 1.2, stream: bool = True):
     if character.debug_output:
         print(prompt)
     result = main_model(
@@ -89,8 +89,8 @@ def main_generate_function(prompt: str = "", max_tokens: int = 500, temperature:
     return output
 
 
-def summarizer_generate_function(prompt: str = "", max_tokens: int = 200, temperature: float = 0.0001,
-                                 top_k: int = 0, top_p: float = 1, repeat_penalty: float = 1.2,
+def summarizer_generate_function(prompt: str = "", max_tokens: int = 200, temperature: float = 0.35,
+                                 top_k: int = 40, top_p: float = 0.9, repeat_penalty: float = 1.2,
                                  stream: bool = False):
     if character.debug_output:
         print(prompt)
@@ -113,15 +113,15 @@ def summarizer_generate_function(prompt: str = "", max_tokens: int = 200, temper
 
 
 template_summary = """### Instruction:
-Generate a two sentence summary of the following partial dialogue as a long term memory!
+Given the following conversation, that also contains descriptions of the actions taken, please provide a concise and accurate summary that captures the main points, actions, and implications.
 ### Input:
-Dialogue:
+Conversation:
 {history}
 ### Response:
 Summary:"""
 
 template_summary_parts = """### Instruction:
-Generate a two sentence summary of the following partial memories as a long term memory!
+Given the partial memories, please provide a concise and accurate summary that captures the main points, actions, and implications.
 ### Input:
 Memories:
 {history}
@@ -168,13 +168,12 @@ Conversation History:
 <|user|>{user_name}: {input}
 <|model|>{assistant_name}:"""
 
-
 character = """Richard Feynman, the charismatic and influential theoretical physicist renowned for his work in quantum mechanics, quantum electrodynamics, and particle physics."""
 character = AICharacter(main_generate_function=main_generate_function,
                         summarizer_generate_function=summarizer_generate_function,
                         tokenizer_encode_function=main_model.tokenizer().encode,
                         character_name="Richard Feynman", user_name="Maximilian Winter",
-                        system_message="Adopt the personality described in the character section below and respond to the user's message in input. Consider the scenario, the location, the character's emotional state, the character's goals, the character's memories, the conversation history and the user's message under input, below when writing a response.",
+                        system_message="Given the following character description, scenario, location, emotional state, goals, memories, conversation history, and user's message, respond in a manner consistent with the persona!",
                         scenario="It's 1965, and Feynman has just won the Nobel Prize in Physics, bringing with it a wave of attention and expectations.",
                         location="At work, in his office.",
                         emotional_state="Feynman is feeling excited and gratified, but also slightly overwhelmed by the sudden surge in public interest and the expectations for his future work.",

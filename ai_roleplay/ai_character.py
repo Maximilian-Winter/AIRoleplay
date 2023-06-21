@@ -283,10 +283,10 @@ Current Context:
                     if self.manual_summarize:
                         self.summarize_chat_history_manual()
                     else:
-                        self.memorize_chat_history(2)
+                        self.memorize_chat_history(4)
                         if self.dialogue_summaries_count == self.memorize_summaries_interval:
                             self.summarize_summaries()
-                        summarize_count += 1
+                        # summarize_count += 1
                     prompt_str = self.build_conversation_prompt(user_input)
                     prompt_length = len(self.tokenizer_encode_function(prompt_str))
                 else:
