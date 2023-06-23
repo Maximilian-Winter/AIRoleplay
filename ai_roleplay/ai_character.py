@@ -11,11 +11,53 @@ from .commands import CommandRegistry
 from .chat_history import ChatTurn
 
 
+def load_personality(filename):
+    # Initialize the variables
+    description = None
+    scenario = None
+    feelings = None
+    goals = None
+    save_directory = None
+    location = None
+    username = None
+    character_name = None
+
+    # Open the file and read it line by line
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+
+    for line in lines:
+        # Remove any leading/trailing whitespace
+        line = line.strip()
+
+        # Check if the line matches the format for each piece of information
+        if line.startswith("Description:"):
+            description = line[len("Description:"):].strip()
+        elif line.startswith("Scenario:"):
+            scenario = line[len("Scenario:"):].strip()
+        elif line.startswith("Feelings:"):
+            feelings = line[len("Feelings:"):].strip()
+        elif line.startswith("Goals:"):
+            # Split the string into a list of goals, removing leading/trailing whitespace
+            goals = [goal.strip() for goal in line[len("Goals:"):].split(',')]
+        elif line.startswith("SaveDirectory:"):
+            save_directory = line[len("SaveDirectory:"):].strip()
+        elif line.startswith("Location:"):
+            location = line[len("Location:"):].strip()
+        elif line.startswith("Username:"):
+            username = line[len("Username:"):].strip()
+        elif line.startswith("CharacterName:"):
+            character_name = line[len("CharacterName:"):].strip()
+
+    return description, scenario, feelings, goals, save_directory, location, username, character_name
+
+
 class AICharacter:
     def __init__(self, main_generate_function, summarizer_generate_function, tokenizer_encode_function,
                  character_name="Grey Fox", user_name="User",
                  system_message="You are a the user's personal assistant.", objectives=None, max_output_length=350,
-                 chat_template="", rate_memory_importance_template="", emotion_template="", template_objectives="" ,summarizer_template="", summarizer_summaries_template="", command_registry=None,
+                 chat_template_filename="", rate_memory_importance_template_filename="", summarizer_template_filename="",
+                 command_registry=None,
                  save_dir="./pa_data",
                  character_description="",
                  emotional_state="",
@@ -26,13 +68,7 @@ class AICharacter:
 
         self.update_counter = 0
         self.max_context_size = max_context_size
-        self.template_objectives = template_objectives
-        self.objectives_prompt = Prompter.from_string(self.template_objectives)
-
-        self.emotion_template = emotion_template
-        self.emotion_prompt = Prompter.from_string(self.emotion_template)
-        self.rate_memory_importance_template = rate_memory_importance_template
-        self.rate_memory_prompt = Prompter.from_string(self.rate_memory_importance_template)
+        self.rate_memory_prompt = Prompter.from_string(rate_memory_importance_template_filename)
         self.manual_summarize = manual_summarize
         self.tokenizer_encode_function = tokenizer_encode_function
         self.max_output_length = max_output_length
@@ -59,49 +95,9 @@ class AICharacter:
         self.user_name = user_name
         self.system_message = system_message
 
-        if summarizer_template != "":
-            self.template_summary = summarizer_template
-        else:
-            self.template_summary = """### Instruction:
-Please generate a concise summary of the information provided in this partial dialogue, ensuring that it captures all details. Do not introduce any additional information outside of what's provided in the dialogue. Make sure to read all partial dialogue and collect the information and write a coherent Summary without making assumptions! Make clear in the Summary that it's a partial Summary!
-### Input:
-Dialogue:
-{history}
-### Response:
-Summary:"""
-        self.prompt_summary = Prompter.from_string(self.template_summary)
+        self.prompt_summary = Prompter.from_string(summarizer_template_filename)
 
-        if summarizer_summaries_template != "":
-            self.template_summary_parts = summarizer_summaries_template
-        else:
-            self.template_summary_parts = """### Instruction:
-Please generate a concise summary of the information provided in the partial summaries, ensuring that it captures all details. Do not introduce any additional information outside of what's provided in the partial summaries. Make sure to read all partial summaries and collect the information and write a coherent Summary!
-### Input:
-Summaries:
-{history}
-### Response:
-Summary:"""
-        self.prompt_summary_parts = Prompter.from_string(self.template_summary_parts)
-
-        if chat_template != "":
-            self.chat_template = chat_template
-        else:
-            self.chat_template = """### Instruction:
-{system_message}
-### Input:
-{assistant_name}'s objectives:
-{objectives}
-Additional Context:
-{additional_context}
-Conversation History:
-{history}
-Current Context:
-{user_name}: {input}
-
-
-### Response:
-{assistant_name}:"""
-        self.chat_prompt = Prompter.from_string(self.chat_template)
+        self.chat_prompt = Prompter.from_string(chat_template_filename)
         self.memorize_summaries_interval = 4
         self.dialogue_summaries_count = 0
         self.current_summaries = []
@@ -168,48 +164,6 @@ Current Context:
         except FileNotFoundError:
             print(f"File '{self.save_dir}/chat_history.json' not found.")
             self.chat_history = []
-
-    def summarize_summaries(self):
-        memories_str = ""
-        for i in self.current_summaries:
-            memories_str += i + "\n"
-            self.memory_stream.remove_memory(i)
-        self.current_summaries.clear()
-        summary_prompt = self.prompt_summary_parts.generate_prompt(
-            {"history": memories_str})
-        # output_summary = self.generate_function(summary_prompt, temperature=0.1)
-        # output_summary = output_summary['choices'][0]['text']
-        if self.debug_output:
-            print(summary_prompt)
-        output_summary = self.summarizer_generate_function(summary_prompt)
-        self.memory_stream.add_memory(output_summary)
-        if self.debug_output:
-            print(output_summary)
-        self.dialogue_summaries_count = 0
-
-    def memorize_chat_history_test(self, k=2, temperature=0.1, top_k=0, top_p=0.5):
-        mem_history = ""
-        mem = self.chat_history[: k]
-        for i in range(len(mem)):
-            mem_history += mem[i].que + "\n"
-
-        summary_prompt = self.prompt_summary.generate_prompt(
-            {"history": mem_history})
-        if self.debug_output:
-            print(summary_prompt)
-        output_summary = self.summarizer_generate_function(summary_prompt, temperature=temperature, top_k=top_k,
-                                                           top_p=top_p)
-        output_summary = output_summary['choices'][0]['text']
-        if self.debug_output:
-            print(output_summary)
-
-    def test_memories(self):
-        mem_history = ""
-        mem = self.memory_stream.get_last_k_memories(100)
-        for i in range(len(mem)):
-            mem_history += mem[i] + "\n"
-
-        print(mem_history)
 
     def summarize_chat_history_manual(self):
         mem_history = ""
@@ -280,35 +234,6 @@ Current Context:
              "scenario": self.scenario, "character": self.character_description,
              "input": user_input, "system_message": self.system_message,
              "additional_context": additional_context, "objectives": self.objectives_list})
-
-        return prompt_str
-
-    def build_emotion_prompt(self):
-        history = ""
-
-        for chat in self.chat_history:
-            if not chat.is_in_memory:
-                history += f"{chat.query_message.owner}: {chat.query_message.message}\n{chat.response_message.owner}:{chat.response_message.message}\n"
-
-        prompt_str = self.emotion_prompt.generate_prompt(
-            {"assistant_name": self.assistant_name,
-             "history": history, "emotional_state": self.emotional_state,
-             "character": self.character_description})
-
-        return prompt_str
-
-    def build_objectives_prompt(self):
-        history = ""
-
-        for chat in self.chat_history:
-            if not chat.is_in_memory:
-                history += f"{chat.query_message.owner}: {chat.query_message.message}\n{chat.response_message.owner}:{chat.response_message.message}\n"
-
-        prompt_str = self.objectives_prompt.generate_prompt(
-            {"assistant_name": self.assistant_name,
-             "history": history,
-             "character": self.character_description,
-             "objectives": self.objectives_list})
 
         return prompt_str
 

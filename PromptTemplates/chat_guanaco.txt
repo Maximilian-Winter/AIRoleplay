@@ -1,0 +1,14 @@
+### Instruction:
+{history}
+### Input:
+System: {system_message}
+{assistant_name}'s objectives:
+{objectives}
+Additional Context:
+{additional_context}
+Current Context:
+{user_name}: {input}
+
+
+### Response:
+{assistant_name}:

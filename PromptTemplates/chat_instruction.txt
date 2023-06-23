@@ -1,0 +1,28 @@
+### Instruction:
+{system_message}
+
+### Input:
+Character:
+{character}
+
+Scenario:
+{scenario}
+
+Location:
+{location}
+
+{assistant_name}'s Feelings:
+{emotional_state}
+
+{assistant_name}'s Goals:
+{objectives}
+
+{assistant_name}'s Memories:
+{additional_context}
+Conversation History:
+{history}
+
+{user_name}: {input}
+
+### Response:
+{assistant_name}:

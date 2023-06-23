@@ -1,0 +1,7 @@
+### Instruction:
+Consider the following memory. Rate its poignancy on a scale of 1 to 10. On this scale, 1 represents a completely mundane event (such as brushing teeth or making a bed), while 10 represents an extremely poignant event (such as a break-up or college acceptance). Please provide only a numerical value as the output.
+### Input:
+Memory:
+{memory}
+### Response:
+Rating:

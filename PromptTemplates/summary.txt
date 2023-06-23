@@ -1,0 +1,9 @@
+### Instruction:
+Given the following incomplete dialogue, please provide a concise and accurate summary as a part of {assistant_name}'s memory.
+
+### Input:
+Conversation:
+{conversation_history}
+
+### Response:
+Summary:

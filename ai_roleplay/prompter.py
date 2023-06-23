@@ -15,6 +15,12 @@ class Prompter:
     def from_string(cls, template_string):
         return cls(template_string=template_string)
 
+    @classmethod
+    def from_file(cls, template_file):
+        with open(template_file, "r") as file:
+            template_string = file.read()
+        return cls(template_string=template_string)
+
     def generate_prompt(self, template_fields):
         def replace_placeholder(match):
             placeholder = match.group(1)
