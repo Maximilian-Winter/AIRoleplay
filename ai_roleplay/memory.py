@@ -15,6 +15,7 @@ class Memory:
     creation_timestamp: datetime.datetime
     last_access_timestamp: datetime.datetime
     embedding: np.ndarray
+    importance: float
 
 
 class MemoryStream:
@@ -30,7 +31,7 @@ class MemoryStream:
     def add_memory(self, description: str, date: datetime.datetime = datetime.datetime.now(), importance: float = 1.0):
         embedding = self.get_embedding([description])[0]  # Convert to batch
         embedding = np.array(embedding)  # Reduce precision
-        memory = Memory(description, date, date, embedding)
+        memory = Memory(description, date, date, embedding, importance)
         self.memories.append(memory)
 
     def update_all_embeddings(self):
@@ -56,14 +57,15 @@ class MemoryStream:
         relevance = 1 - cosine(memory_embedding, query_embedding)
         return relevance
 
-    def compute_scores(self, query_embedding, date, alpha_recency=1, alpha_relevance=1):
+    def compute_scores(self, query_embedding, date, alpha_recency=1, alpha_relevance=1, alpha_importance=1):
         scores = []
         for memory in self.memories:
             recency = self.compute_recency(memory, date)
             relevance = self.compute_relevance(memory.embedding, query_embedding)
-            score = alpha_recency * recency + alpha_relevance * relevance
+            importance = memory.importance
+            score = alpha_recency * recency + alpha_relevance * relevance + alpha_importance + importance
             scores.append(score)
-        return np.array(scores, dtype=np.float16)
+        return np.array(scores)
 
     def normalize_scores(self, scores):
         min_score, max_score = np.min(scores), np.max(scores)
@@ -75,11 +77,11 @@ class MemoryStream:
         return scores.argsort()[-k:][::-1]
 
     def retrieve_memories(self, query, k, date=datetime.datetime.now(), alpha_recency=1,
-                          alpha_relevance=1):
+                          alpha_relevance=1,  alpha_importance=1):
         if len(self.memories) > 0:
             query_embedding = self.get_embedding([query])[0]  # Convert to batch
             query_embedding = np.array(query_embedding)
-            scores = self.compute_scores(query_embedding, date, alpha_recency, alpha_relevance)
+            scores = self.compute_scores(query_embedding, date, alpha_recency, alpha_relevance, alpha_importance)
             normalized_scores = self.normalize_scores(scores)
             top_indices = self.get_top_indices(normalized_scores, k)
             retrieved_memories = [self.memories[i] for i in top_indices]

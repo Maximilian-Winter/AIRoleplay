@@ -8,20 +8,31 @@ from InstructorEmbedding import INSTRUCTOR
 from .memory import MemoryStream
 from .prompter import Prompter
 from .commands import CommandRegistry
+from .chat_history import ChatTurn
 
 
 class AICharacter:
     def __init__(self, main_generate_function, summarizer_generate_function, tokenizer_encode_function,
                  character_name="Grey Fox", user_name="User",
                  system_message="You are a the user's personal assistant.", objectives=None, max_output_length=350,
-                 chat_template="", summarizer_template="", summarizer_summaries_template="", command_registry=None,
+                 chat_template="", rate_memory_importance_template="", emotion_template="", template_objectives="" ,summarizer_template="", summarizer_summaries_template="", command_registry=None,
                  save_dir="./pa_data",
                  character_description="",
                  emotional_state="",
                  location="",
                  scenario="",
+                 max_context_size=1024,
                  generation_parameters=None, manual_summarize=False, debug_output=False):
 
+        self.update_counter = 0
+        self.max_context_size = max_context_size
+        self.template_objectives = template_objectives
+        self.objectives_prompt = Prompter.from_string(self.template_objectives)
+
+        self.emotion_template = emotion_template
+        self.emotion_prompt = Prompter.from_string(self.emotion_template)
+        self.rate_memory_importance_template = rate_memory_importance_template
+        self.rate_memory_prompt = Prompter.from_string(self.rate_memory_importance_template)
         self.manual_summarize = manual_summarize
         self.tokenizer_encode_function = tokenizer_encode_function
         self.max_output_length = max_output_length
@@ -91,7 +102,7 @@ Current Context:
 ### Response:
 {assistant_name}:"""
         self.chat_prompt = Prompter.from_string(self.chat_template)
-        self.memorize_summaries_interval = 2
+        self.memorize_summaries_interval = 4
         self.dialogue_summaries_count = 0
         self.current_summaries = []
         self.additional_msgs_in_context = 2
@@ -116,9 +127,8 @@ Current Context:
             os.mkdir(self.save_dir)
         self.memory_stream.save_to_json(f"{self.save_dir}/memory_stream.json")
         self.save_chat_history()
-        bot_settings = [self.assistant_name, self.user_name, self.objectives, self.chat_template, self.template_summary,
-                        self.template_summary_parts, self.system_message, self.scenario, self.location,
-                        self.emotional_state, self.character_description]
+        bot_settings = [self.assistant_name, self.user_name, self.objectives, self.scenario, self.location,
+                        self.emotional_state, self.character_description, self.update_counter]
         with open(f"{self.save_dir}/bot_settings.json", 'w') as file:
             json.dump(bot_settings, file)
 
@@ -132,14 +142,11 @@ Current Context:
                 self.user_name = bot_settings[1]
                 self.objectives = bot_settings[2]
                 self.objectives_list = "\n".join(self.objectives)
-                self.chat_template = bot_settings[3]
-                self.template_summary = bot_settings[4]
-                self.template_summary_parts = bot_settings[5]
-                self.system_message = bot_settings[6]
-                self.scenario = bot_settings[7]
-                self.location = bot_settings[8]
-                self.emotional_state = bot_settings[9]
-                self.character_description = bot_settings[10]
+                self.scenario = bot_settings[3]
+                self.location = bot_settings[4]
+                self.emotional_state = bot_settings[5]
+                self.character_description = bot_settings[6]
+                self.update_counter = bot_settings[7]
 
     def create_embeddings(self, sentences: List[str]) -> List[np.ndarray]:
         """Create embeddings for a list of sentences."""
@@ -148,16 +155,19 @@ Current Context:
         return [np.array(embed) for embed in embeddings]
 
     def save_chat_history(self):
+        chat_history_dict = [chat_turn.to_dict() for chat_turn in self.chat_history]
         with open(f"{self.save_dir}/chat_history.json", 'w') as file:
-            json.dump(self.chat_history, file)
+            json.dump(chat_history_dict, file)
 
     def load_chat_history(self):
         try:
             with open(f"{self.save_dir}/chat_history.json", 'r') as file:
-                self.chat_history = json.load(file)
+                chat_history_dict = json.load(file)
+                self.chat_history = [ChatTurn.chat_turn_from_dict(chat_turn_dict) for chat_turn_dict in
+                                     chat_history_dict]
         except FileNotFoundError:
             print(f"File '{self.save_dir}/chat_history.json' not found.")
-            return []
+            self.chat_history = []
 
     def summarize_summaries(self):
         memories_str = ""
@@ -181,7 +191,7 @@ Current Context:
         mem_history = ""
         mem = self.chat_history[: k]
         for i in range(len(mem)):
-            mem_history += mem[i] + "\n"
+            mem_history += mem[i].que + "\n"
 
         summary_prompt = self.prompt_summary.generate_prompt(
             {"history": mem_history})
@@ -215,49 +225,90 @@ Current Context:
         self.memory_stream.add_memory(summary)
         self.memory_stream.save_to_json(f"{self.save_dir}/memory_stream.json")
 
-
     def memorize_chat_history(self, k=5):
         mem_history = ""
         mem = self.chat_history[: k]
-        for i in range(len(mem)):
-            mem_history += mem[i] + "\n"
-            self.chat_history.remove(mem[i])
+        for chat in mem:
+            mem_history += f"{chat.query_message.owner}: {chat.query_message.message}\n{chat.response_message.owner}:{chat.response_message.message}\n"
+            chat.is_in_memory = True
 
         summary_prompt = self.prompt_summary.generate_prompt(
-            {"history": mem_history})
+            {"conversation_history": mem_history, "assistant_name": self.assistant_name})
         output_summary = self.summarizer_generate_function(summary_prompt)
         if self.debug_output:
             print(output_summary)
         self.current_summaries.append(output_summary)
-        self.memory_stream.add_memory(output_summary)
+
+        rate_prompt = self.rate_memory_prompt.generate_prompt(
+            {"memory": output_summary})
+        output_rating = self.summarizer_generate_function(rate_prompt)
+        match = re.search(r'\d+', output_rating)
+        if match:
+            importance = int(match.group())
+        else:
+            importance = 1
+
+        self.memory_stream.add_memory(output_summary, importance=importance)
         self.memory_stream.save_to_json(f"{self.save_dir}/memory_stream.json")
         self.save_chat_history()
         self.dialogue_summaries_count += 1
 
     def create_contextual_query(self, user_input):
-        # Concatenate recent conversation history with new user input
-        query = ' '.join(self.chat_history[-3:] + [user_input])
-        return query
+        mem_history = f"{self.assistant_name}'s feelings: {self.emotional_state}\n{self.assistant_name}'s location: {self.location}\n"
+        if len(self.chat_history) > 0:
+            chat = self.chat_history[-1]
+            mem_history += f"{chat.query_message.message}\n{chat.response_message.message}\n{user_input}"
+        return mem_history
 
     def build_conversation_prompt(self, user_input):
         additional_context = ""
         history = ""
         query_memories = self.create_contextual_query(user_input)
-        memories = self.memory_stream.retrieve_memories(query_memories, self.additional_msgs_in_context,
-                                                        alpha_recency=0)
+        memories = self.memory_stream.retrieve_memories(query_memories, self.additional_msgs_in_context)
         memories.sort(key=lambda memory: memory.creation_timestamp)
         for m in memories:
             additional_context += self.remove_empty_lines(m.description) + "\n"
 
         for chat in self.chat_history:
-            history += chat
+            if not chat.is_in_memory:
+                history += f"{chat.query_message.owner}: {chat.query_message.message}\n{chat.response_message.owner}:{chat.response_message.message}\n"
 
+        history = history[:-1]
         prompt_str = self.chat_prompt.generate_prompt(
             {"assistant_name": self.assistant_name, "location": self.location,
              "user_name": self.user_name, "history": history, "emotional_state": self.emotional_state,
-             "scenario": self.scenario, "character":  self.character_description,
+             "scenario": self.scenario, "character": self.character_description,
              "input": user_input, "system_message": self.system_message,
              "additional_context": additional_context, "objectives": self.objectives_list})
+
+        return prompt_str
+
+    def build_emotion_prompt(self):
+        history = ""
+
+        for chat in self.chat_history:
+            if not chat.is_in_memory:
+                history += f"{chat.query_message.owner}: {chat.query_message.message}\n{chat.response_message.owner}:{chat.response_message.message}\n"
+
+        prompt_str = self.emotion_prompt.generate_prompt(
+            {"assistant_name": self.assistant_name,
+             "history": history, "emotional_state": self.emotional_state,
+             "character": self.character_description})
+
+        return prompt_str
+
+    def build_objectives_prompt(self):
+        history = ""
+
+        for chat in self.chat_history:
+            if not chat.is_in_memory:
+                history += f"{chat.query_message.owner}: {chat.query_message.message}\n{chat.response_message.owner}:{chat.response_message.message}\n"
+
+        prompt_str = self.objectives_prompt.generate_prompt(
+            {"assistant_name": self.assistant_name,
+             "history": history,
+             "character": self.character_description,
+             "objectives": self.objectives_list})
 
         return prompt_str
 
@@ -279,23 +330,32 @@ Current Context:
             prompt_length = len(self.tokenizer_encode_function(prompt_str))
             summarize_count = 0
             while True:
-                if (prompt_length + self.max_output_length) >= 2048:
+                if (prompt_length + self.max_output_length) >= self.max_context_size:
                     if self.manual_summarize:
                         self.summarize_chat_history_manual()
                     else:
                         self.memorize_chat_history(4)
-                        if self.dialogue_summaries_count == self.memorize_summaries_interval:
-                            self.summarize_summaries()
-                        # summarize_count += 1
+                        # if self.dialogue_summaries_count == self.memorize_summaries_interval:
+                        #    self.summarize_summaries()
+                        summarize_count += 1
                     prompt_str = self.build_conversation_prompt(user_input)
                     prompt_length = len(self.tokenizer_encode_function(prompt_str))
                 else:
                     break
 
             output = self.main_generate_function(prompt_str)
-            self.chat_history.append(
-                f"{self.user_name}: {self.remove_empty_lines(user_input)}\n{self.assistant_name}:{self.remove_empty_lines(output)}\n")
+            turn = ChatTurn(self.user_name, self.remove_empty_lines(user_input), self.assistant_name,
+                            self.remove_empty_lines(output))
+            self.chat_history.append(turn)
             self.save_chat_history()
+            self.update_counter += 1
+            if self.update_counter == 5:
+                # output = self.summarizer_generate_function(self.build_emotion_prompt())
+                # self.emotional_state = self.remove_empty_lines(output)
+                # output = self.summarizer_generate_function(self.build_objectives_prompt())
+                # self.objectives_list = self.remove_empty_lines(output)
+                self.update_counter = 0
+            self.save_bot()
 
     def process_commands(self, input_text):
         command_pattern = re.compile(r"@(\w+)(.*)")
